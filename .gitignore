@@ -12,3 +12,6 @@ data/*.db
 # OSの設定ファイル
 .DS_Store
 Thumbs.db
+
+# Streamlitのキャッシュ
+.streamlit/
