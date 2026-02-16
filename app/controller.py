@@ -1,7 +1,7 @@
 import csv
 import io
 
-from core.models import TextBlock, TodoBlock, CharacterBlock, WorldSettingBlock
+from core.models import TextBlock, TodoBlock, CharacterBlock, WorldSettingBlock, StoryBlock
 from core.database import DatabaseManager
 from datetime import datetime
 
@@ -41,21 +41,86 @@ class NotionController:
         if location.strip():
             self.db.save_block("world", content, project_id=project_id, location=location)
 
+    def add_story_block(self, project_id, title, content):
+        if title.strip():
+            # block_type を "story" として保存。nameカラムにタイトル流用
+            self.db.save_block("story", content, project_id=project_id, name=title)
+
+    def delete_block(self, block_id):
+        self.db.delete_block(block_id)
+
+    # --- 章の操作 ---
+    def add_chapter(self, project_id, title):
+        if title.strip():
+            existing = self.db.fetch_chapters_by_project(project_id)
+            if any(c[1] == title for c in existing):
+                return False, "その章題は既に存在します。"
+            
+            self.db.save_chapter(project_id, title)
+            return True, "作成しました"
+        return False, "章題を入力してください。"
+
+    def get_chapters(self, project_id):
+        return self.db.fetch_chapters_by_project(project_id)
+    
+    def update_chapter_title(self, chapter_id, new_title):
+        """ 章のタイトルのみを更新する """
+        if new_title.strip():
+            return self.db.update_chapter_title(chapter_id, new_title)
+        return False
+    
+    # --- エピソード（Episode: 中項目・本文）の操作 ---
+    def add_episode(self, chapter_id, title, content=""):
+        if title.strip():
+            existing = self.db.fetch_episodes_by_chapter(chapter_id)
+            if any(e[1] == title for e in existing):
+                return False, "その話名は現在の章に既に存在します。"
+            
+            self.db.save_episode(chapter_id, title, content)
+            return True, "エピソードを作成しました。"
+        return False, "話名を入力してください。"
+    
+    def get_episodes(self, chapter_id):
+        return self.db.fetch_episodes_by_chapter(chapter_id)
+    
+    def update_episode(self, episode_id, title, content):
+        success = self.db.update_episode(episode_id, title, content)
+        return success
+    
+    def delete_episode(self, episode_id):
+        self.db.delete_episode(episode_id)
+    
+    # --- 静的ファイルの読み込み ---
+    def get_style(self):
+        """ static/style.css を読み込んでいます """
+        try:
+            with open("static/style.css", "r", encoding="utf-8") as f:
+                return f"<style>{f.read()}</style>"
+        except FileNotFoundError:
+            return ""
+
     # --- データ取得 ---
     def get_blocks_by_project(self, project_id):
         """ 指定された作品のデータを取得し、適切なクラスに変換する """
         raw_data = self.db.fetch_blocks_by_project(project_id)
         blocks = []
 
-        for b_type, content, is_done, name, role, loc in raw_data:
+        for b_id, b_type, content, is_done, name, role, loc in raw_data:
+            block = None
             if b_type == "text":
-                blocks.append(TextBlock(content))
+                block = TextBlock(content)
             elif b_type == "todo":
-                blocks.append(TodoBlock(content, bool(is_done)))
+                block = TodoBlock(content, bool(is_done))
             elif b_type == "character":
-                blocks.append(CharacterBlock(name, role, content))
+                block = CharacterBlock(name, role, content)
             elif b_type == "world":
-                blocks.append(WorldSettingBlock(loc, content))
+                block = WorldSettingBlock(loc, content)
+            elif b_type == "story":
+                block = StoryBlock(name, content)
+            
+            if block:
+                block.id = b_id
+                blocks.append(block)
         
         return blocks
 

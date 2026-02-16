@@ -1,0 +1,28 @@
+/* プレビューエリア共通 */
+.preview-container {
+    padding: 20px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    background-color: #ffffff;
+    min-height: 400px;
+}
+
+/* 縦書きモード */
+.vertical-mode {
+    writing-mode: vertical-rl;
+    text-orientation: upright;
+    font-family: "Sawarabi Mincho", serif;
+    line-height: 2.5;
+    height: 600px;
+    overflow-x: auto;      /* 横スクロール */
+    padding: 40px;
+    background-color: #fdf5e6;       /* 原稿用紙風の色 */
+    border: 2px solid #e0cda9;
+}
+
+/* 横書きモード */
+.horizontal-mode {
+    writing-mode: horizontal-tb;
+    font-family: "Hiragino Kaku Gothic Pro", sans-serif;
+    line-height: 1.8;
+}

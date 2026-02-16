@@ -40,6 +40,31 @@ class DatabaseManager:
                 FOREIGN KEY (project_id) REFERENCES projects (id)
             )
             """)
+
+            # 3. 章（Chapter）を管理するテーブル
+            conn.execute("""
+            CREATE TABLE IF NOT EXISTS chapters (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                project_id INTEGER,
+                title TEXT NOT NULL,
+                order_num INTEGER DEFAULT 0,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (project_id) REFERENCES projects (id)
+            )
+            """)
+
+            # 4. 話（Episode）を管理するテーブル - 「中項目 - 本文」として使用
+            conn.execute("""
+            CREATE TABLE IF NOT EXISTS episodes (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                chapter_id INTEGER,
+                title TEXT NOT NULL,
+                content TEXT,
+                order_num INTEGER DEFAULT 0,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (chapter_id) REFERENCES chapters (id)
+            )
+            """)
     
     # --- プロジェクト関連の操作 ---
     def save_project(self, title):
@@ -65,10 +90,27 @@ class DatabaseManager:
         with self._get_connection() as conn:
             conn.execute(query, (block_type, content, project_id, is_done, name, role, location))
 
+    def update_block(self, block_id, content, **kwargs):
+        """ 指定したIDブロックを更新する """
+        # kwargsから動的に更新カラムを作る（少し高度なリファクタリング）
+        keys = ["content"] + list(kwargs.keys())
+        values = [content] + list(kwargs.values())
+        set_clause = ", ".join([f"{k} = ?" for k in keys])
+
+        query = f"UPDATE blocks SET {set_clause} WHERE id = ?"
+        with self._get_connection() as conn:
+            conn.execute(query, values + [block_id])
+
+    def delete_block(self, block_id):
+        """ 指定したIDのブロックを削除する """
+        query = "DELETE FROM blocks WHERE id = ?"
+        with self._get_connection() as conn:
+            conn.execute(query, (block_id,))
+
     def fetch_blocks_by_project(self, project_id):
         """ 特定の作品に紐づくブロックのみを取得する """
         query = """
-        SELECT block_type, content, is_done, name, role, location
+        SELECT id, block_type, content, is_done, name, role, location
         FROM blocks
         WHERE project_id = ?
         ORDER BY created_at ASC
@@ -81,3 +123,45 @@ class DatabaseManager:
         query = "SELECT block_type, content, is_done, name, role, location FROM blocks ORDER BY created_at ASC"
         with self._get_connection() as conn:
             return conn.execute(query).fetchall()
+        
+    # --- 章（Chapter）操作用のメソッド ---
+    def save_chapter(self, project_id, title):
+        query = "INSERT INTO chapters (project_id, title) VALUES (?, ?)"
+        with self._get_connection() as conn:
+            conn.execute(query, (project_id, title))
+
+    def fetch_chapters_by_project(self, project_id):
+        query = "SELECT id, title FROM chapters WHERE project_id = ? ORDER BY order_num ASC, id ASC"
+        with self._get_connection() as conn:
+            return conn.execute(query, (project_id,)).fetchall()
+        
+    def update_chapter_title(self, chapter_id, title):
+        query = "UPDATE chapter SET title = ? WHERE id = ?"
+        with self._get_connection() as conn:
+            conn.execute(query, (title, chapter_id))
+            return True
+
+    # --- 話（Episode）を操作用 ---
+    def save_episode(self, chapter_id, title, content):
+        query = "INSERT INTO episodes (chapter_id, title, content) VALUES (?, ?, ?)"
+        with self._get_connection() as conn:
+            conn.execute(query, (chapter_id, title, content))
+    
+    def fetch_episodes_by_chapter(self, chapter_id):
+        query = "SELECT id, title, content FROM episodes WHERE chapter_id = ? ORDER BY order_num ASC, id ASC"
+        with self._get_connection() as conn:
+            return conn.execute(query, (chapter_id,)).fetchall()
+        
+    def update_episode(self, episode_id, title, content):
+        try:
+            query = "UPDATE episodes SET title = ?, content = ? WHERE id = ?"
+            with self._get_connection() as conn:
+                conn.execute(query, (title, content, episode_id))
+            return True
+        except Exception:
+            return False
+
+    def delete_episode(self, episode_id):
+        query = "DELETE FROM episodes WHERE id = ?"
+        with self._get_connection() as conn:
+            conn.execute(query, (episode_id,))

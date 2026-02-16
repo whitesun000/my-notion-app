@@ -47,3 +47,11 @@ class WorldSettingBlock(BaseBlock):
     
     def render(self):
         return f"🗺️ **場所・項目: {self.location}**\n\n詳細: {self.content}"
+
+class StoryBlock(BaseBlock):
+    def __init__(self, title, content, **kwargs):
+        super().__init__(content, **kwargs)
+        self.title = title      # 第1話、プロットなど
+    
+    def render(self):
+        return f"📖 ### {self.title}\n\n{self.content}"
